@@ -5,13 +5,13 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copia apenas o .csproj
-COPY ProcessoDigital/ProcessoDigital_Server/ProcessoDigital_Server.csproj ./ProcessoDigital_Server/
+COPY ./ProcessoDigital/ProcessoDigital_Server.csproj ./ProcessoDigital_Server/
 
 # Restaura dependências
 RUN dotnet restore ./ProcessoDigital_Server/ProcessoDigital_Server.csproj
 
 # Copia TODO o projeto
-COPY ProcessoDigital/ProcessoDigital_Server/ ./ProcessoDigital_Server/
+COPY ./ProcessoDigital_Server/ ./ProcessoDigital_Server/
 
 # Publica o projeto
 RUN dotnet publish ./ProcessoDigital_Server/ProcessoDigital_Server.csproj -c Release -o /app/publish

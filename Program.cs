@@ -13,7 +13,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddMudServices();
 
-builder.Services.AddDbContextFactory<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IClienteService, ClienteService>();

@@ -1,24 +1,21 @@
-# Build stage
+# Build Stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
+WORKDIR /src
 
-# Copiar csproj
+# Copia somente o csproj primeiro (melhor cache)
 COPY ProcessoDigital_Server.csproj ./
-RUN dotnet restore ProcessoDigital_Server.csproj
 
-# Copiar tudo
-COPY . ./
+# Copia o restante
+COPY . .
 
-# Publicar
-RUN dotnet publish ProcessoDigital_Server.csproj -c Release -o /out
+# Restaura dependências
+RUN dotnet restore "./ProcessoDigital_Server.csproj"
 
-# Runtime stage
+# Publica
+RUN dotnet publish "./ProcessoDigital_Server.csproj" -c Release -o /app/publish
+
+# Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-
-COPY --from=build /out ./
-
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
-
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "ProcessoDigital_Server.dll"]

@@ -1,25 +1,32 @@
-# Etapa 1 — Build
+ï»¿# ============================================
+# Etapa 1 â”€ Build (SDK)
+# ============================================
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copia apenas o csproj
-COPY ProcessoDigital_Server.csproj .
+COPY ProcessoDigital_Server.csproj ./ 
 
-# Restaura dependências
+# Restaura dependÃªncias
 RUN dotnet restore ProcessoDigital_Server.csproj
 
-# Copia todo o restante do projeto
+# Copia todo o conteÃºdo agora
 COPY . .
 
-# Compila o projeto
+# Publica em modo Release
 RUN dotnet publish ProcessoDigital_Server.csproj -c Release -o /app/publish
 
-# Etapa 2 — Runtime
+
+# ============================================
+# Etapa 2 â”€ Runtime (ASP.NET)
+# ============================================
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
+# Copia da etapa de build
 COPY --from=build /app/publish .
 
+# Render usa a porta 8080
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 

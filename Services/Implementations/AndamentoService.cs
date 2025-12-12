@@ -9,26 +9,26 @@ namespace ProcessoDigital_Server.Services.Implementations
 {
     public class AndamentoService : IAndamentoService
     {
-        private readonly IDbContextFactory<AppDbContext> _dbFactory;
+        private readonly AppDbContext _context;
 
-        public AndamentoService(IDbContextFactory<AppDbContext> dbFactory)
+        public AndamentoService(AppDbContext context)
         {
-            _dbFactory = dbFactory;
+            _context = context;
         }
 
         public async Task<IEnumerable<AndamentoModel>> GetAllAndamentosAsync()
         {
-            await using var context = _dbFactory.CreateDbContext();
+            
             // Inclui o Processo relacionado para que possamos mostrar o Número CNJ no Dashboard
-            return await context.Andamentos
+            return await _context.Andamentos
                 .Include(a => a.Processo)
                     .ThenInclude(p => p.Cliente)
                 .ToListAsync();
         }
         public async Task<IEnumerable<AndamentoModel>> GetByProcessoIdAsync(int processoId)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            return await context.Andamentos
+            
+            return await _context.Andamentos
                 .Include(p => p.Processo)
                 .Where(p => p.ProcessoId == processoId)
                 .ToListAsync();
@@ -36,35 +36,35 @@ namespace ProcessoDigital_Server.Services.Implementations
 
         public async Task<AndamentoModel?> GetByIdAsync(int id)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            return await context.Andamentos
+            
+            return await _context.Andamentos
                 .Include(a => a.Descricao)
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
 
         public async Task AddAsync(AndamentoModel andamento)
         {
-            await using var context = _dbFactory.CreateDbContext();
             
-            context.Andamentos.Add(andamento);
-            await context.SaveChangesAsync();
+            
+            _context.Andamentos.Add(andamento);
+            await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(AndamentoModel andamento)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            context.Andamentos.Update(andamento);
-            await context.SaveChangesAsync();
+            
+            _context.Andamentos.Update(andamento);
+            await _context.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(int id)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            var andamento = await context.Andamentos.FindAsync(id);
+            
+            var andamento = await _context.Andamentos.FindAsync(id);
             if (andamento != null)
             {
-                context.Andamentos.Remove(andamento);
-                await context.SaveChangesAsync();
+                _context.Andamentos.Remove(andamento);
+                await _context.SaveChangesAsync();
             }
         }
     }

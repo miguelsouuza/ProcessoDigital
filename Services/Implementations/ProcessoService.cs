@@ -7,24 +7,22 @@ namespace ProcessoDigital_Server.Services.Implementations
 {
     public class ProcessoService : IProcessoService
     {
-        private readonly IDbContextFactory<AppDbContext> _dbFactory;
+        private readonly AppDbContext _context;
 
-        public ProcessoService(IDbContextFactory<AppDbContext> dbFactory)
+        public ProcessoService(AppDbContext context)
         {
-            _dbFactory = dbFactory;
+            _context = context;
         }
 
         public async Task<IEnumerable<ProcessoModel>> GetAllAsync()
         {
-            await using var context = _dbFactory.CreateDbContext();
-            return await context.Processos
+            return await _context.Processos
                 .Include(p => p.Cliente)
                 .ToListAsync();
         }
         public async Task<IEnumerable<ProcessoModel>> GetByClienteIdAsync(int clienteId)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            return await context.Processos
+            return await _context.Processos
                 .Include(p => p.Cliente)
                 .Where(p => p.ClienteId == clienteId)
                 .ToListAsync();
@@ -32,34 +30,30 @@ namespace ProcessoDigital_Server.Services.Implementations
 
         public async Task<ProcessoModel?> GetByIdAsync(int id)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            return await context.Processos
+            return await _context.Processos
                 .Include(p => p.Cliente)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task AddAsync(ProcessoModel processo)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            context.Processos.Add(processo);
-            await context.SaveChangesAsync();
+            _context.Processos.Add(processo);
+            await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(ProcessoModel processo)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            context.Processos.Update(processo);
-            await context.SaveChangesAsync();
+            _context.Processos.Update(processo);
+            await _context.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(int id)
         {
-            await using var context = _dbFactory.CreateDbContext();
-            var processo = await context.Processos.FindAsync(id);
+            var processo = await _context.Processos.FindAsync(id);
             if (processo != null)
             {
-                context.Processos.Remove(processo);
-                await context.SaveChangesAsync();
+                _context.Processos.Remove(processo);
+                await _context.SaveChangesAsync();
             }
         }
     }

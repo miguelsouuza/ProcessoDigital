@@ -12,7 +12,7 @@ using ProcessoDigital_Server.Data.Context;
 namespace ProcessoDigital_Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251212163658_InitialCreate")]
+    [Migration("20251212182607_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

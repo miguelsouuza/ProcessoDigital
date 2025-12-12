@@ -1,17 +1,24 @@
-# Etapa 1 – Build
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
+WORKDIR /app
 
-COPY ProcessoDigital_Server/*.csproj ProcessoDigital_Server/
-RUN dotnet restore ProcessoDigital_Server/ProcessoDigital_Server.csproj
+# Copiar csproj
+COPY ProcessoDigital_Server.csproj ./
+RUN dotnet restore ProcessoDigital_Server.csproj
 
-COPY . .
-RUN dotnet publish ProcessoDigital_Server/ProcessoDigital_Server.csproj -c Release -o /app/publish
+# Copiar tudo
+COPY . ./
 
-# Etapa 2 – Runtime
+# Publicar
+RUN dotnet publish ProcessoDigital_Server.csproj -c Release -o /out
+
+# Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-COPY --from=build /app/publish .
 
+COPY --from=build /out ./
+
+ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
+
 ENTRYPOINT ["dotnet", "ProcessoDigital_Server.dll"]

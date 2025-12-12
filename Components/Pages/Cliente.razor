@@ -1,0 +1,118 @@
+﻿@rendermode InteractiveServer
+@implements IDisposable
+@page "/clientes"
+<MudAppWrapper />
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-3" /> Clientes
+</MudText>
+
+<MudCard Elevation="2">
+    <MudCardHeader>
+        <MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudItem>
+                <MudText Typo="Typo.h5">Lista de Cadastros</MudText>
+            </MudItem>
+            <MudItem>
+                <ButtonClient title="Novo Cliente"/>
+            </MudItem>
+        </MudGrid>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_isLoading)
+        {
+            <div class="d-flex justify-center py-5">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudDataGrid Items="@_clientes"
+                         Filterable="true"
+                         SortMode="SortMode.Multiple"
+                         Dense="true"
+                         Striped="true"
+                         Bordered="false"
+                         Height="500px">
+
+                <Columns>
+                    <PropertyColumn Title="Ações" Property="x => x.Id" Filterable="false" Sortable="false">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Color="Color.Primary"
+                                           Href="@($"/clientes/cadastro/{context.Item.Id}")"
+                                           Title="Editar Cliente" />
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.Nome" Title="Nome Completo" />
+
+                    <PropertyColumn Property="x => x.Documento" Title="CPF/CNPJ" />
+
+                    <PropertyColumn Property="x => x.Tipo" Title="Tipo">
+                        <CellTemplate>
+                            <MudText>@(context.Item.Tipo == TipoPessoa.Fisica ? "P. Física" : "P. Jurídica")</MudText>
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.Email" Title="E-mail" />
+                    <PropertyColumn Property="x => x.Telefone" Title="Telefone" />
+
+                    <PropertyColumn Property="x => x.Processos.Count" Title="Processos" Filterable="false" Sortable="true">
+                        <CellTemplate>
+                            <MudChip Color="Color.Info" Size="Size.Small">@context.Item.Processos.Count</MudChip>
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Cliente" />
+                </PagerContent>
+            </MudDataGrid>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Inject]
+    private IClienteService ClienteService { get; set; } = default!;
+
+    private IEnumerable<ClienteModel> _clientes = new List<ClienteModel>();
+    private bool _isLoading = true;
+    private bool _disposed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClientsAsync();
+    }
+
+    private async Task LoadClientsAsync()
+    {
+        if (_disposed) return;
+
+        _isLoading = true;
+        try
+        {
+            _clientes = await ClienteService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar clientes: {ex.Message}");
+        }
+        finally
+        {
+            if (!_disposed)
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+    }
+}

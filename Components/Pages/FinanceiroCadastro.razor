@@ -1,0 +1,179 @@
+﻿@inject ProcessoDigital_Server.Services.Interfaces.ILancamentoService LancamentoService
+@inject MudBlazor.ISnackbar Snackbar
+@using ProcessoDigital_Server.Data.Model
+@using System.Globalization
+
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Event" Class="mr-3" />
+            @(LancamentoId == null ? "Novo Lançamento Financeiro" : "Editar Lançamento")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm Model="@_lancamento" @ref="_form" NoValidate="true">
+            <MudGrid>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="LancamentoModel.TipoLancamento"
+                               Label="Tipo"
+                               @bind-Value="_lancamento.Tipo"
+                               Variant="Variant.Outlined">
+
+                        @foreach (LancamentoModel.TipoLancamento tipo in Enum.GetValues(typeof(LancamentoModel.TipoLancamento)))
+                        {
+                            <MudSelectItem Value="@tipo">@tipo.ToString()</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="LancamentoModel.StatusLancamento"
+                               Label="Status"
+                               @bind-Value="_lancamento.Status"
+                               For="@(() => _lancamento.Status)">
+                        <MudSelectItem Value="LancamentoModel.StatusLancamento.Aberto">Aberto</MudSelectItem>
+                        <MudSelectItem Value="LancamentoModel.StatusLancamento.Pago">Pago</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudNumericField Label="Valor (R$)"
+                                     @bind-Value="_lancamento.Valor"
+                                     Variant="Variant.Outlined"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="R$"
+                                     Culture="@System.Globalization.CultureInfo.GetCultureInfo("pt-BR")"
+                                     Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Label="Data de Vencimento"
+                                   Date="_lancamento.DataVencimento"
+                                   Variant="Variant.Outlined"
+                                   Required="true" />
+                </MudItem>
+
+                @if (_lancamento.Status == LancamentoModel.StatusLancamento.Pago)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker Label="Data de Liquidação/Pagamento"
+                                       @bind-Date="_lancamento.DataPagamento"
+                                       Variant="Variant.Outlined"
+                                       Required="true" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField Label="Descrição do Lançamento"
+                                  @bind-Value="_lancamento.Descricao"
+                                  Variant="Variant.Outlined"
+                                  Lines="3"
+                                  Required="true" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Default">Cancelar</MudButton>
+        <MudButton OnClick="Save" Color="Color.Success" Variant="Variant.Filled" Disabled="@_isSaving">
+            @(_isSaving ? "Salvando..." : "Salvar")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int? LancamentoId { get; set; }
+
+    private LancamentoModel _lancamento = new LancamentoModel();
+    private MudForm? _form;
+    private bool _isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (LancamentoId.HasValue && LancamentoId.Value != 0)
+        {
+            // Carregar Lançamento existente
+            var existing = await LancamentoService.GetByIdAsync(LancamentoId.Value);
+            if (existing != null)
+            {
+                _lancamento = existing;
+            }
+            else
+            {
+                Snackbar.Add("Lançamento não encontrado.", Severity.Error);
+                MudDialog.Cancel();
+            }
+        }
+        else
+        {
+            // Novo Lançamento: Inicializa com valores padrão
+            _lancamento = new LancamentoModel
+            {
+                DataVencimento = DateTime.Today,
+                Tipo = LancamentoModel.TipoLancamento.Despesa,
+                Status = LancamentoModel.StatusLancamento.Aberto
+            };
+        }
+    }
+
+    private void OnStatusChanged(LancamentoModel.StatusLancamento newStatus)
+    {
+        if (newStatus == LancamentoModel.StatusLancamento.Pago && _lancamento.DataPagamento == null)
+        {
+            // Sugere a data atual se for marcado como Pago
+            _lancamento.DataPagamento = DateTime.Today;
+        }
+        else if (newStatus == LancamentoModel.StatusLancamento.Aberto)
+        {
+            // Limpa a data se for marcado como Aberto
+            _lancamento.DataPagamento = null;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Save()
+    {
+        if (_form is null) return;
+
+        await _form.Validate();
+
+        if (_form.IsValid)
+        {
+            _isSaving = true;
+            try
+            {
+                // Garante que a DataPagamento seja nula se o status for Aberto
+                if (_lancamento.Status == LancamentoModel.StatusLancamento.Aberto)
+                {
+                    _lancamento.DataPagamento = null;
+                }
+
+                if (LancamentoId == null || LancamentoId == 0)
+                {
+                    await LancamentoService.AddAsync(_lancamento);
+                }
+                else
+                {
+                    await LancamentoService.UpdateAsync(_lancamento);
+                }
+
+                // Fecha o modal e retorna sucesso
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Erro ao salvar lançamento: {ex.Message}", Severity.Error);
+                _isSaving = false;
+            }
+        }
+    }
+}

@@ -1,0 +1,116 @@
+﻿@page "/"
+
+@inject ProcessoDigital_Server.Services.Interfaces.IClienteService ClienteService
+@inject ProcessoDigital_Server.Services.Interfaces.IProcessoService ProcessoService
+@inject ProcessoDigital_Server.Services.Interfaces.IAndamentoService AndamentoService
+
+<MudAppWrapper/>
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-6">
+    <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-3" /> Cockpit Jurídico
+</MudText>
+
+<MudGrid Class="mb-6">
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4 text-center mud-theme-primary white-text">
+            <MudText Typo="Typo.h5" Class="white-text">@_totalClientes</MudText>
+            <MudText Typo="Typo.subtitle1" Class="white-text">Clientes Cadastrados</MudText>
+            <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" Class="mt-2" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4 text-center mud-theme-info white-text">
+            <MudText Typo="Typo.h5" Class="white-text">@_processosAtivos</MudText>
+            <MudText Typo="Typo.subtitle1" Class="white-text">Processos Ativos</MudText>
+            <MudIcon Icon="@Icons.Material.Filled.Gavel" Color="Color.Primary" Size="Size.Large" Class="mt-2" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4 text-center mud-theme-warning white-text">
+            <MudText Typo="Typo.h5" Class="white-text">@_prazosHoje.Count()</MudText>
+            <MudText Typo="Typo.subtitle1" Class="white-text">Prazos/Audiências Hoje</MudText>
+            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary" Size="Size.Large" Class="mt-2" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4 text-center mud-theme-success white-text">
+            <MudText Typo="Typo.h5" Class="white-text">@_processosArquivados</MudText>
+            <MudText Typo="Typo.subtitle1" Class="white-text">Processos Arquivados</MudText>
+            <MudIcon Icon="@Icons.Material.Filled.Archive" Color="Color.Primary" Size="Size.Large" Class="mt-2" />
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+---
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <MudText Typo="Typo.h5">Prazos e Audiências de Hoje</MudText>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (!_prazosHoje.Any())
+                {
+                    <MudText Typo="Typo.body1">🎉 Sem prazos ou audiências fatais para hoje. Dia de focar!</MudText>
+                }
+                else
+                {
+                    <MudList T="AndamentoModel">
+                        @foreach (var andamento in _prazosHoje)
+                        {
+                            <MudListItem Icon="@Icons.Material.Filled.AlarmOn" IconColor="Color.Warning">
+                                <div class="d-flex justify-content-between">
+                                    <MudText>
+                                        **@andamento.Data.ToShortTimeString()** - @andamento.Descricao
+                                        (<MudLink Href="@($"/processos/detalhe/{andamento.ProcessoId}")">Processo: @andamento.Processo?.NumeroCNJ</MudLink>)
+                                    </MudText>
+                                    <MudChip Color="Color.Error" Size="Size.Small">HOJE</MudChip>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                        }
+                    </MudList>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool _isLoading = true;
+
+    // Variáveis para Cards
+    private int _totalClientes = 0;
+    private int _processosAtivos = 0;
+    private int _processosArquivados = 0; // Exemplo de outro filtro
+
+    // Variável para a lista de Prazos/Andamentos
+    private IEnumerable<AndamentoModel> _prazosHoje = Enumerable.Empty<AndamentoModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+
+        var todosClientes = await ClienteService.GetAllAsync();
+        _totalClientes = todosClientes.Count();
+
+        var todosProcessos = await ProcessoService.GetAllAsync();
+        _processosAtivos = todosProcessos.Count(p => p.Status == StatusProcesso.Ativo);
+        _processosArquivados = todosProcessos.Count(p => p.Status == StatusProcesso.Arquivado);
+
+        var hoje = DateTime.Today;        
+
+        var todosAndamentos = await AndamentoService.GetAllAndamentosAsync();
+        _prazosHoje = todosAndamentos;
+        _isLoading = false;       
+    }
+}

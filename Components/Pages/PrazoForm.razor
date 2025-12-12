@@ -1,0 +1,61 @@
+﻿@using ProcessoDigital_Server.Data.Model
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudTextField Label="Descrição"
+                          @bind-Value="_prazo.Descricao"
+                          Required="true"
+                          Variant="Variant.Outlined" />
+
+            <MudDatePicker Label="Data do prazo"
+                           Date="@_prazo.Data"
+                           DateChanged="OnDateChanged"
+                           Required="true"
+                           Variant="Variant.Outlined" />
+        </MudForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Success" OnClick="Salvar">Salvar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int? DefaultProcessoId { get; set; }
+
+    private MudForm? _form;
+    private AndamentoModel _prazo = new() { Data = DateTime.Now };
+
+    protected override void OnInitialized()
+    {
+        if (DefaultProcessoId.HasValue)
+            _prazo.ProcessoId = DefaultProcessoId.Value;
+    }
+
+    // você pediu pra não usar @bind-Date, então fazemos manual
+    private void OnDateChanged(DateTime? novaData)
+    {
+        if (novaData.HasValue)
+            _prazo.Data = novaData.Value;
+    }
+
+    private void Cancelar()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Salvar()
+    {
+        await _form!.Validate();
+        if (!_form.IsValid) return;
+
+        MudDialog.Close(DialogResult.Ok(_prazo));
+    }
+}

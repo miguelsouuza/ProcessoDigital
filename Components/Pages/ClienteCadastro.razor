@@ -1,0 +1,248 @@
+﻿@page "/clientes/cadastro/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IDbContextFactory<AppDbContext> DbFactory
+
+<MudAppWrapper />
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    <MudIcon Icon="@(_isNew? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-3" />
+    @( _isNew ? "Novo Cadastro de Cliente" : "Editar Cliente")
+</MudText>
+
+<MudCard Elevation="2">
+    <MudCardContent>
+        <MudForm Model="@_cliente" @ref="@_form" ValidationDelay="0">
+
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudTextField Label="Nome Completo / Razão Social"
+                                  HelperText="Obrigatório. Máximo 100 caracteres."
+                                  @bind-Value="_cliente.Nome"
+                                  For="@(() => _cliente.Nome)"
+                                  Variant="Variant.Outlined"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSelect T="TipoPessoa"
+                               Label="Tipo de Pessoa"
+                               @bind-Value="_cliente.Tipo"
+                               For="@(() => _cliente.Tipo)"
+                               Variant="Variant.Outlined"
+                               Required="true">
+                        <MudSelectItem T="TipoPessoa" Value="@TipoPessoa.Fisica">Pessoa Física (PF)</MudSelectItem>
+                        <MudSelectItem T="TipoPessoa" Value="@TipoPessoa.Juridica">Pessoa Jurídica (PJ)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="CPF / CNPJ"
+                                  HelperText="Obrigatório."
+                                  @bind-Value="_cliente.Documento"
+                                  For="@(() => _cliente.Documento)"
+                                  Variant="Variant.Outlined"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="E-mail"
+                                  @bind-Value="_cliente.Email"
+                                  For="@(() => _cliente.Email)"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Telefone"
+                                  @bind-Value="_cliente.Telefone"
+                                  For="@(() => _cliente.Telefone)"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Endereço Completo"
+                                  Lines="2"
+                                  @bind-Value="_cliente.Endereco"
+                                  For="@(() => _cliente.Endereco)"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudCardContent>
+
+    <MudCardActions Class="pa-4">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   Href="/clientes">
+            Cancelar
+        </MudButton>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   OnClick="SaveClient"
+                   Disabled="@_isLoadingSave"
+                   StartIcon="@Icons.Material.Filled.Save">
+            @(_isLoadingSave ? "Salvando..." : "Salvar Cadastro")
+        </MudButton>
+
+        @if (!_isNew)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       OnClick="OpenDeleteDialog"
+                       StartIcon="@Icons.Material.Filled.Delete">
+                Excluir
+            </MudButton>
+        }
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [Inject]
+    private IClienteService ClienteService { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
+
+    [Inject]
+    private IDialogService DialogService { get; set; } = default!;
+
+    private ClienteModel _cliente = new ClienteModel();
+    private MudForm? _form;
+    private bool _isNew => Id == 0;
+    private bool _isLoadingSave = false;
+    private bool _isLoadingData = true;
+    private bool _disposed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoadingData = true;
+
+        if (!_isNew)
+        {
+            try
+            {
+                var clienteExistente = await ClienteService.GetByIdAsync(Id);
+                if (clienteExistente != null)
+                {
+                    _cliente = clienteExistente;
+                }
+                else
+                {
+                    Snackbar.Add("Cliente não encontrado.", Severity.Error);
+                    Navigation.NavigateTo("/clientes");
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Erro ao carregar cliente: {ex.Message}", Severity.Error);
+            }
+        }
+        else
+        {
+            _cliente = new ClienteModel
+            {
+                Tipo = TipoPessoa.Fisica
+            };
+        }
+
+        _isLoadingData = false;
+    }
+
+    private async Task SaveClient()
+    {
+        if (_disposed) return;
+        if (_form is null) return;
+
+        await _form.Validate();
+
+        if (_form.IsValid)
+        {
+            _isLoadingSave = true;
+
+            try
+            {
+                if (_isNew)
+                {
+                    await ClienteService.AddAsync(_cliente);
+                    Snackbar.Add("Cliente cadastrado com sucesso!", Severity.Success);
+                }
+                else
+                {
+                    await ClienteService.UpdateAsync(_cliente);
+                    Snackbar.Add("Cliente atualizado com sucesso!", Severity.Success);
+                }
+
+                await Task.Delay(100); // Pequeno delay para garantir que a mensagem seja exibida
+                Navigation.NavigateTo("/clientes");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Erro ao salvar: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                if (!_disposed)
+                {
+                    _isLoadingSave = false;
+                    StateHasChanged();
+                }
+            }
+        }
+        else
+        {
+            Snackbar.Add("Preencha os campos obrigatórios corretamente.", Severity.Warning);
+        }
+    }
+
+    private async Task OpenDeleteDialog()
+    {
+        if (_disposed) return;
+
+        var parameters = new DialogParameters
+        {
+            ["ContentText"] = "Tem certeza que deseja EXCLUIR este cliente? Esta ação é irreversível.",
+            ["ButtonText"] = "Excluir",
+            ["Color"] = Color.Error
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+        try
+        {
+            var dialog = await DialogService.ShowAsync<ConfirmDialog>("Confirmar Exclusão", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled && !_disposed)
+            {
+                try
+                {
+                    await ClienteService.DeleteAsync(Id);
+                    Snackbar.Add("Cliente excluído com sucesso!", Severity.Success);
+                    await Task.Delay(100);
+                    Navigation.NavigateTo("/clientes");
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Erro ao excluir: {ex.Message}", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+    }
+}

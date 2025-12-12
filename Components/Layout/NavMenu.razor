@@ -1,0 +1,23 @@
+﻿@using MudBlazor.Services
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard (Cockpit)
+    </MudNavLink>
+    
+    <MudNavLink Href="/clientes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+        Clientes
+    </MudNavLink>
+    
+    <MudNavLink Href="/processos" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Gavel">
+        Processos
+    </MudNavLink>
+    
+    <MudNavLink Href="/agenda" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CalendarToday">
+        Agenda / Prazos
+    </MudNavLink>
+    
+    <MudNavLink Href="/financeiro" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AttachMoney">
+        Financeiro Simples
+    </MudNavLink>
+</MudNavMenu>

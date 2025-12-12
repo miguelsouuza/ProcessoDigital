@@ -1,0 +1,240 @@
+﻿@page "/financeiro"
+
+@inject ProcessoDigital_Server.Services.Interfaces.ILancamentoService LancamentoService
+@inject MudBlazor.IDialogService DialogService
+@inject MudBlazor.ISnackbar Snackbar
+
+@using ProcessoDigital_Server.Data.Model
+@using MudBlazor.Utilities
+@using System.Globalization
+
+@rendermode InteractiveServer
+
+<MudAppWrapper />
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Class="mr-3" /> Controle Financeiro
+</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="4" Class="pa-4 mud-theme-success-text" Style="background-color: #e8f5e9;">
+            <MudText Typo="Typo.h6">Receitas (a Receber + Recebido)</MudText>
+            <MudText Typo="Typo.h4">@_totalReceitas.ToString("C", new CultureInfo("pt-BR"))</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="4" Class="pa-4 mud-theme-error-text" Style="background-color: #ffebee;">
+            <MudText Typo="Typo.h6">Despesas (a Pagar + Pago)</MudText>
+            <MudText Typo="Typo.h4">@_totalDespesas.ToString("C", new CultureInfo("pt-BR"))</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="4">
+        @{
+            var saldo = _totalReceitas - _totalDespesas;
+            var saldoColor = saldo >= 0 ? Color.Success : Color.Error;
+        }
+        <MudPaper Elevation="4" Class="pa-4 mud-text-secondary" Style="@($"background-color: {(saldo >= 0 ? "#f0f8ff" : "#fff0f5")};")">
+            <MudText Typo="Typo.h6">Saldo Total Estimado</MudText>
+            <MudText Typo="Typo.h4" Color="@saldoColor">@saldo.ToString("C", new CultureInfo("pt-BR"))</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudCard Elevation="2">
+    <MudCardHeader>
+        <MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudItem>
+                <MudText Typo="Typo.h5">Lançamentos</MudText>
+            </MudItem>
+            <MudItem>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => OpenAddEditDialog())">
+                    Novo Lançamento
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_isLoading)
+        {
+            <div class="d-flex justify-center py-5">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudDataGrid Items="@_lancamentos"
+                         Filterable="true"
+                         SortMode="SortMode.Multiple"
+                         Dense="true"
+                         Striped="true"
+                         Bordered="false"
+                         Height="600px"
+                         QuickFilter="@_quickFilter">
+
+                <ToolBarContent>
+                    <MudTextField @bind-Value="_searchString"
+                                  Placeholder="Buscar na descrição ou referência"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium"
+                                  Class="mt-0" />
+                </ToolBarContent>
+
+                <Columns>
+                    <PropertyColumn Title="Ações" Property="x => x.Id" Filterable="false" Sortable="false" Width="100px">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Color="Color.Primary"
+                                           OnClick="@(() => OpenAddEditDialog(context.Item.Id))"
+                                           Title="Editar Lançamento" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteLancamento(context.Item.Id))"
+                                           Title="Excluir Lançamento" />
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.Referencia" Title="Ref." Width="80px" />
+
+                    <PropertyColumn Property="x => x.Tipo" Title="Tipo" Width="100px">
+                        <CellTemplate>
+                            @{
+                                var isReceita = context.Item.Tipo == LancamentoModel.TipoLancamento.Receita;
+                                var color = isReceita ? Color.Success : Color.Error;
+                                <MudChip Color="@color" Size="Size.Small" Label="true">
+                                    @(isReceita ? "Receita" : "Despesa")
+                                </MudChip>
+                            }
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.Descricao" Title="Descrição" />
+
+                    <PropertyColumn Property="x => x.DataVencimento" Title="Vencimento" Format="dd/MM/yyyy" Width="130px" />
+
+                    <PropertyColumn Property="x => x.Valor" Title="Valor" Width="150px">
+                        <CellTemplate>
+                            <span class="@(context.Item.Tipo == LancamentoModel.TipoLancamento.Receita ? "mud-theme-success-text" : "mud-theme-error-text")">
+                                @context.Item.Valor.ToString("C", new CultureInfo("pt-BR"))
+                            </span>
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.Status" Title="Status" Width="100px">
+                        <CellTemplate>
+                            @{
+                                var isPago = context.Item.Status == LancamentoModel.StatusLancamento.Pago;
+                                var color = isPago ? Color.Success : Color.Warning;
+                                <MudChip Color="@color" Size="Size.Small">
+                                    @(isPago ? "Pago" : "Aberto")
+                                </MudChip>
+                            }
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.DataPagamento" Title="Data Pagto." Format="dd/MM/yyyy" Width="130px" />
+
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="LancamentoModel" />
+                </PagerContent>
+            </MudDataGrid>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IEnumerable<LancamentoModel> _lancamentos = new List<LancamentoModel>();
+    private bool _isLoading = true;
+    private string _searchString = string.Empty;
+    private decimal _totalReceitas;
+    private decimal _totalDespesas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLancamentosAsync();
+    }
+
+    private async Task LoadLancamentosAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            _lancamentos = (await LancamentoService.GetAllAsync()).OrderByDescending(l => l.DataVencimento).ToList();
+            CalculateTotals();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar lançamentos: {ex.Message}");
+            Snackbar.Add("Erro ao carregar lançamentos.", Severity.Error);
+        }
+
+        _isLoading = false;
+    }
+
+    private void CalculateTotals()
+    {
+        _totalReceitas = _lancamentos
+            .Where(l => l.Tipo == LancamentoModel.TipoLancamento.Receita)
+            .Sum(l => l.Valor);
+
+        _totalDespesas = _lancamentos
+            .Where(l => l.Tipo == LancamentoModel.TipoLancamento.Despesa)
+            .Sum(l => l.Valor);
+    }
+
+    private Func<LancamentoModel, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        if (x.Descricao.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.Referencia.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private async Task OpenAddEditDialog(int? lancamentoId = null)
+    {
+        var parameters = new DialogParameters { ["LancamentoId"] = lancamentoId };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = DialogService.Show<FinanceiroCadastro>("Gerenciar Lançamento", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadLancamentosAsync();
+            Snackbar.Add("Lançamento salvo com sucesso!", Severity.Success);
+        }
+    }
+
+    private async Task DeleteLancamento(int id)
+    {
+        // Implementar confirmação de diálogo real (MudDialog) em produção
+        if (await Task.FromResult(true)) // Simulação de confirmação
+        {
+            try
+            {
+                await LancamentoService.DeleteAsync(id);
+                Snackbar.Add("Lançamento excluído com sucesso!", Severity.Success);
+                await LoadLancamentosAsync(); // Recarrega a lista
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Erro ao excluir: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

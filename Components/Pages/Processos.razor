@@ -1,0 +1,157 @@
+﻿@page "/processos"
+
+@inject ProcessoDigital_Server.Services.Interfaces.IProcessoService ProcessoService
+@inject ProcessoDigital_Server.Services.Interfaces.IClienteService ClienteService
+@using ProcessoDigital_Server.Data.Model
+@using MudBlazor.Utilities // Para as cores de Chip
+
+<MudAppWrapper/>
+
+<MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-3" /> Gestão de Processos
+</MudText>
+
+<MudCard Elevation="2">
+    <MudCardHeader>
+        <MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudItem>
+                <MudText Typo="Typo.h5">Processos Cadastrados</MudText>
+            </MudItem>
+            <MudItem>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Href="/processos/cadastro/0">
+                    Novo Processo
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_isLoading)
+        {
+            <div class="d-flex justify-center py-5">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudDataGrid Items="@_processos"
+                         Filterable="true"
+                         SortMode="SortMode.Multiple"
+                         Dense="true"
+                         Striped="true"
+                         Bordered="false"
+                         Height="600px"
+                         QuickFilter="@_quickFilter">
+
+                <ToolBarContent>
+                    <MudText Typo="Typo.subtitle1" Class="mr-4">Filtro Rápido:</MudText>
+                    <MudTextField @bind-Value="_searchString"
+                                  Placeholder="Buscar por CNJ ou Parte Contrária"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium"
+                                  Class="mt-0" />
+                </ToolBarContent>
+
+                <Columns>
+                    <PropertyColumn Title="Ações" Property="x => x.Id" Filterable="false" Sortable="false" Width="70px">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                           Size="Size.Small"
+                                           Color="Color.Info"
+                                           Href="@($"/processos/cadastro/{context.Item.Id}")"
+                                           Title="Ver Detalhes/Editar" />
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.NumeroCNJ" Title="Número CNJ" Width="180px" />
+
+                    <PropertyColumn Property="x => x.Cliente.Nome" Title="Cliente" Width="200px">
+                        <CellTemplate>
+                            <MudLink Href="@($"/clientes/cadastro/{context.Item.ClienteId}")">
+                                @context.Item.Cliente?.Nome
+                            </MudLink>
+                        </CellTemplate>
+                    </PropertyColumn>
+
+                    <PropertyColumn Property="x => x.ParteContraria" Title="Parte Contrária" />
+
+                    <PropertyColumn Property="x => x.DataDistribuicao" Title="Distribuição" Format="dd/MM/yyyy" Width="130px" />
+
+                    <PropertyColumn Property="x => x.Status" Title="Status" Width="130px">
+                        <CellTemplate>
+                            @{
+                                var status = context.Item.Status;
+                                var color = GetStatusColor(status);
+                                <MudChip Color="@color" Size="Size.Small">@status.ToString()</MudChip>
+                            }
+                        </CellTemplate>
+                    </PropertyColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="ProcessoModel" />
+                </PagerContent>
+            </MudDataGrid>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IEnumerable<ProcessoModel> _processos = new List<ProcessoModel>();
+    private bool _isLoading = true;
+    private string _searchString = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProcessosAsync();
+    }
+
+    private async Task LoadProcessosAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            // O serviço de Processos deve garantir que o objeto Cliente esteja incluso (Include)
+            _processos = await ProcessoService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao carregar processos: {ex.Message}");
+            // Snackbar.Add("Erro ao carregar processos.", Severity.Error);
+        }
+
+        _isLoading = false;
+    }
+
+    // Método de filtro rápido
+    private Func<ProcessoModel, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        if (x.NumeroCNJ.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.ParteContraria?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+
+        return false;
+    };
+
+    // Helper para definir a cor do MudChip baseada no Status
+    private Color GetStatusColor(StatusProcesso status)
+    {
+        return status switch
+        {
+            StatusProcesso.Ativo => Color.Success,
+            StatusProcesso.EmRecurso => Color.Warning,
+            StatusProcesso.Suspenso => Color.Info,
+            StatusProcesso.Arquivado => Color.Default,
+            _ => Color.Secondary,
+        };
+    }
+}

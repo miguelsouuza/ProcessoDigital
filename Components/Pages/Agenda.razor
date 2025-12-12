@@ -1,0 +1,148 @@
+﻿@page "/agenda"
+@rendermode InteractiveServer
+
+@using ProcessoDigital_Server.Data.Model
+@using MudBlazor
+@inject IProcessoService ProcessoService
+@inject IAndamentoService AndamentoService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudAppWrapper />
+
+<MudContainer Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h5" Color="Color.Primary">
+            📅 Agenda de Prazos
+        </MudText>
+
+        <MudGrid Class="mt-2">
+            <MudItem xs="12" sm="6">
+                <MudSelect T="int?" Label="Filtrar por Processo"
+                           Value="_filtroProcessoId"
+                           ValueChanged="OnFiltroProcessoChanged"
+                           Clearable="true"
+                           Variant="Variant.Outlined">
+
+                    <MudSelectItem Value="@((int?)null)">Todos os processos</MudSelectItem>
+
+                    @foreach (var proc in _processos)
+                    {
+                        <MudSelectItem Value="@((int?)proc.Id)">
+                            @proc.NumeroCNJ - @proc.Cliente?.Nome
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" Class="d-flex justify-end align-end">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Info"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenNovoPrazo">
+                    Novo prazo
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (!_prazos.Any())
+    {
+        <MudText> Nenhum prazo encontrado.</MudText>
+    }
+    else
+    {
+        <MudTable Items="_prazos">
+            <HeaderContent>
+                <MudTh>Processo</MudTh>
+                <MudTh>Cliente</MudTh>
+                <MudTh>Data</MudTh>
+                <MudTh>Descrição</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.Processo?.NumeroCNJ</MudTd>
+                <MudTd>@context.Processo?.Cliente?.Nome</MudTd>
+                <MudTd>@context.Data.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd>@context.Descricao</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   OnClick="@(() => RemoverPrazo(context.Id))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+@code
+{
+    private List<ProcessoModel> _processos = new();
+    private List<AndamentoModel> _prazos = new();
+
+    // FILTRO – TEM QUE SER int? POR CAUSA DO "Todos os processos"
+    private int? _filtroProcessoId;
+
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarAgenda();
+    }
+
+    private async Task CarregarAgenda()
+    {
+        _loading = true;
+
+        // se seus serviços retornam IEnumerable, o ToList() resolve o erro CS0266
+        _processos = (await ProcessoService.GetAllAsync()).ToList();
+
+        // aqui use o método que você já tem pra carregar os andamentos
+        // se o nome for outro, só trocar aqui
+        _prazos = (await AndamentoService.GetAllAndamentosAsync()).ToList();
+
+        if (_filtroProcessoId is int pid)
+            _prazos = _prazos.Where(p => p.ProcessoId == pid).ToList();
+
+        _loading = false;
+    }
+
+    private async Task OnFiltroProcessoChanged(int? novoId)
+    {
+        _filtroProcessoId = novoId;
+        await CarregarAgenda();
+        StateHasChanged();
+    }
+
+    private async Task OpenNovoPrazo()
+    {
+        var parameters = new DialogParameters();
+
+        // se tiver processo filtrado, manda pro form como padrão
+        if (_filtroProcessoId is int pid)
+            parameters.Add("DefaultProcessoId", pid);
+
+        var dialog = await DialogService.ShowAsync<PrazoForm>("Novo prazo", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is AndamentoModel prazo)
+        {
+            await AndamentoService.AddAsync(prazo);
+            Snackbar.Add("Prazo adicionado!", Severity.Success);
+            await CarregarAgenda();
+        }
+    }
+
+    private async Task RemoverPrazo(int id)
+    {
+        await AndamentoService.DeleteAsync(id);
+        Snackbar.Add("Prazo removido.", Severity.Success);
+        await CarregarAgenda();
+    }
+}

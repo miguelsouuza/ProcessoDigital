@@ -1,0 +1,50 @@
+﻿@page "/diagnostico"
+@rendermode InteractiveServer
+
+<h1>Teste de Conexão Blazor</h1>
+
+<p>Se você consegue ver o contador mudando, o Blazor está funcionando:</p>
+
+<h2>Contador: @contador</h2>
+
+<button class="btn btn-primary" @onclick="Incrementar">
+    Clique Aqui (+1)
+</button>
+
+<div class="mt-4">
+    <p>Status: @status</p>
+</div>
+
+<hr class="my-4" />
+
+<h2>Teste do MudBlazor</h2>
+
+<MudSelect T="string" Label="Teste MudSelect" @bind-Value="valorSelecionado" Variant="Variant.Outlined">
+    <MudSelectItem T="string" Value="@("opcao1")">Opção 1</MudSelectItem>
+    <MudSelectItem T="string" Value="@("opcao2")">Opção 2</MudSelectItem>
+    <MudSelectItem T="string" Value="@("opcao3")">Opção 3</MudSelectItem>
+</MudSelect>
+
+<p class="mt-2">Valor selecionado: <strong>@valorSelecionado</strong></p>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="TestarMud">
+    Testar Botão MudBlazor
+</MudButton>
+
+@code {
+    private int contador = 0;
+    private string status = "Aguardando clique...";
+    private string valorSelecionado = "opcao1";
+
+    private void Incrementar()
+    {
+        contador++;
+        status = $"Funcionando! Você clicou {contador} vez(es)";
+        StateHasChanged();
+    }
+
+    private void TestarMud()
+    {
+        status = "Botão MudBlazor funcionou!";
+    }
+}

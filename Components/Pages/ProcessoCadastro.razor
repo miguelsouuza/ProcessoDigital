@@ -1,0 +1,332 @@
+﻿@page "/processos/cadastro/{Id:int}"
+
+@inject IProcessoService ProcessoService
+@inject IClienteService ClienteService
+@inject IAndamentoService AndamentoService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+@using ProcessoDigital_Server.Data.Model
+@using MudBlazor
+
+<MudAppWrapper />
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <!-- HEADER -->
+    <MudPaper Class="pa-4 mb-5">
+        <MudText Typo="Typo.h4" Color="Color.Primary">
+            <MudIcon Icon="@(_isNew? Icons.Material.Filled.Add : Icons.Material.Filled.Gavel)" Class="mr-2" />
+            @(_isNew ? "Novo Processo" : $"Editar Processo - {_processo.NumeroCNJ}")
+        </MudText>
+    </MudPaper>
+
+    @if (_isLoadingData)
+    {
+        <div class="d-flex justify-center py-8">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else
+    {
+        <!-- DADOS DO PROCESSO -->
+        <MudCard Elevation="2" Class="mb-5">
+
+            <MudCardHeader>
+                <MudText Typo="Typo.h6">Informações do Processo</MudText>
+            </MudCardHeader>
+
+            <MudCardContent>
+                <MudForm Model="@_processo" @ref="_form">
+
+                    <MudGrid>
+
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="int" Label="Cliente"
+                                       @bind-Value="_processo.ClienteId"
+                                       Required="true"
+                                       Variant="Variant.Outlined">
+                                @foreach (var cliente in _clientes)
+                                {
+                                    <MudSelectItem Value="@cliente.Id">@cliente.Nome (@cliente.Documento)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="Número CNJ"
+                                          @bind-Value="_processo.NumeroCNJ"
+                                          Required="true"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="Tipo de Ação"
+                                          @bind-Value="_processo.Acao"
+                                          Required="true"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Label="Parte Contrária"
+                                          @bind-Value="_processo.ParteContraria"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudTextField Label="Tribunal"
+                                          @bind-Value="_processo.Tribunal"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudTextField Label="Vara / Juízo"
+                                          @bind-Value="_processo.Vara"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudSelect T="int" Label="Status"
+                                       @bind-Value="_statusValue"
+                                       Variant="Variant.Outlined">
+                                @foreach (StatusProcesso status in Enum.GetValues(typeof(StatusProcesso)))
+                                {
+                                    <MudSelectItem Value="@((int)status)">@status.ToString()</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField Label="Valor da Causa"
+                                             @bind-Value="_processo.ValorCausa"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="R$"
+                                             Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudDatePicker Label="Data de Distribuição"
+                                           @bind-Date="_dataDistribuicao"
+                                           Required="true"
+                                           Variant="Variant.Outlined" />
+                        </MudItem>
+
+                    </MudGrid>
+
+                </MudForm>
+            </MudCardContent>
+
+            <MudCardActions Class="pa-4">
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/processos">Cancelar</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           OnClick="SaveProcesso"
+                           Disabled="@_isLoadingSave"
+                           StartIcon="@Icons.Material.Filled.Save">
+                    @(_isLoadingSave ? "Salvando..." : "Salvar")
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+
+        <!-- ANDAMENTOS -->
+        @if (!_isNew)
+        {
+            <MudCard Elevation="2">
+
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Andamentos / Prazos</MudText>
+                </MudCardHeader>
+
+                <MudCardContent>
+
+                    <MudExpansionPanel Text="Adicionar andamento">
+                        <MudGrid>
+
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="Data" Date="_novoAndamento.Data" Required="true" Variant="Variant.Outlined" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <MudTextField Label="Descrição"
+                                              @bind-Value="_novoAndamento.Descricao"
+                                              Lines="2" Required="true"
+                                              Variant="Variant.Outlined" />
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudButton Variant="Variant.Filled" Color="Color.Info"
+                                           OnClick="AddAndamento" Disabled="@_isSavingAndamento"
+                                           StartIcon="@Icons.Material.Filled.Event">
+                                    Salvar Andamento
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudExpansionPanel>
+
+                    <MudDivider Class="my-4" />
+
+                    @if (_processo.Andamentos.Any())
+                    {
+                        <MudTimeline>
+                            @foreach (var andamento in _processo.Andamentos.OrderByDescending(a => a.Data))
+                            {
+                                <MudTimelineItem Icon="@Icons.Material.Filled.CalendarMonth">
+                                    <ChildContent>
+                                        <MudText Typo="Typo.subtitle2">@andamento.Data.ToString("dd/MM/yyyy HH:mm")</MudText>
+                                        <MudText>@andamento.Descricao</MudText>
+                                    </ChildContent>
+                                    <ItemContent>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       OnClick="@(() => DeleteAndamento(andamento.Id))" />
+                                    </ItemContent>
+                                </MudTimelineItem>
+                            }
+                        </MudTimeline>
+                    }
+                    else
+                    {
+                        <MudText>Nenhum andamento cadastrado.</MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+
+</MudContainer>
+
+@code {
+
+    [Parameter] public int Id { get; set; }
+
+    private ProcessoModel _processo = new();
+    private AndamentoModel _novoAndamento = new();
+    private IEnumerable<ClienteModel> _clientes = new List<ClienteModel>();
+    private MudForm? _form;
+
+    private bool _isNew => Id == 0;
+    private bool _isLoadingData = true;
+    private bool _isLoadingSave = false;
+    private bool _isSavingAndamento = false;
+
+    private DateTime? _dataDistribuicao;
+
+    private int _statusValue
+{
+    get => (int)_processo.Status;
+    set => _processo.Status = (StatusProcesso)value;
+}
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoadingData = true;
+
+        _clientes = await ClienteService.GetAllAsync();
+
+        if (!_isNew)
+        {
+            var processo = await ProcessoService.GetByIdAsync(Id);
+            if (processo == null)
+            {
+                Snackbar.Add("Processo não encontrado!", Severity.Error);
+                Navigation.NavigateTo("/processos");
+                return;
+            }
+
+            _processo = processo;
+            _dataDistribuicao = processo.DataDistribuicao;
+        }
+        else
+        {
+            _processo = new ProcessoModel { DataDistribuicao = DateTime.Today };
+            _dataDistribuicao = DateTime.Today;
+        }
+
+        _novoAndamento = new AndamentoModel { Data = DateTime.Now };
+
+        _isLoadingData = false;
+    }
+
+    private async Task SaveProcesso()
+    {
+        if (_form is null) return;
+
+        await _form.Validate();
+
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Preencha os campos obrigatórios.", Severity.Warning);
+            return;
+        }
+
+        _isLoadingSave = true;
+        _processo.DataDistribuicao = _dataDistribuicao ?? _processo.DataDistribuicao;
+
+        try
+        {
+            if (_isNew)
+            {
+                await ProcessoService.AddAsync(_processo);
+                Snackbar.Add("Processo cadastrado com sucesso!", Severity.Success);
+            }
+            else
+            {
+                await ProcessoService.UpdateAsync(_processo);
+                Snackbar.Add("Processo atualizado com sucesso!", Severity.Success);
+            }
+
+            Navigation.NavigateTo("/processos");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao salvar: {ex.Message}", Severity.Error);
+        }
+
+        _isLoadingSave = false;
+    }
+
+    private async Task AddAndamento()
+    {
+        if (string.IsNullOrWhiteSpace(_novoAndamento.Descricao))
+        {
+            Snackbar.Add("A descrição é obrigatória.", Severity.Warning);
+            return;
+        }
+
+        _isSavingAndamento = true;
+        _novoAndamento.ProcessoId = _processo.Id;
+
+        try
+        {
+            await AndamentoService.AddAsync(_novoAndamento);
+            _processo.Andamentos.Add(_novoAndamento);
+
+            _novoAndamento = new AndamentoModel { Data = DateTime.Now };
+            Snackbar.Add("Andamento registrado!", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao registrar: {ex.Message}", Severity.Error);
+        }
+
+        _isSavingAndamento = false;
+    }
+
+    private async Task DeleteAndamento(int id)
+    {
+        try
+        {
+            await AndamentoService.DeleteAsync(id);
+            _processo.Andamentos.Remove(_processo.Andamentos.First(a => a.Id == id));
+            Snackbar.Add("Andamento removido.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao excluir: {ex.Message}", Severity.Error);
+        }
+    }
+}
